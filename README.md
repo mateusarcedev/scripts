@@ -1,142 +1,77 @@
-<div align="center">
+# 🛠️ Scripts & Automações
 
-# 🛠️ Scripts & Automações / Automations
+Utilitários e automações em Python para organização de arquivos, processamento de mídias e tarefas operacionais do dia a dia.
 
-**[ 🇧🇷 Versão em Português ](#-português-pt-br)** &nbsp;&nbsp;|&nbsp;&nbsp; **[ 🇺🇸 English Version ](#-english-en)**
-
-</div>
+[🇺🇸 English version](README.en.md)
 
 ---
 
-<a name="português-pt-br"></a>
-## 🇧🇷 Português (PT-BR)
-
-Repositório central de utilitários e automações em Python para organização de arquivos, processamento de mídias e tarefas operacionais do dia a dia.
-
-### 📁 Estrutura do Repositório
+### 📁 Estrutura
 
 ```text
 scripts/
-├── google_drive/                 # Gestão e organização de acervos na nuvem
-│   └── organize_drive_ebooks.py  # Categorização de livros técnicos e limpeza de pastas
-│
-├── subtitles/                    # Processamento e estilização de legendas de vídeo
+├── google_drive/
+│   └── organize_drive_ebooks.py  # Migração única do acervo de ebooks no Google Drive
+├── subtitles/
 │   └── convert_srt_to_4k_ass.py  # Conversor SRT para ASS formatado em 4K
-│
-├── README.md                     # Documentação bilíngue (PT-BR / EN)
-└── README.en.md                  # Dedicated English README
+├── tests/                        # Testes (unittest, biblioteca padrão)
+└── requirements.txt              # Dependências do script do Google Drive
+```
+
+### ⚙️ Requisitos
+
+- Python 3.10+
+- `subtitles/` usa apenas a biblioteca padrão.
+- `google_drive/` precisa de `requests`:
+
+```bash
+python3 -m venv .venv
+source .venv/bin/activate        # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
 ---
 
-### 🎯 Módulos e Objetivos de Negócio
+### 1. Legendas — [`subtitles/convert_srt_to_4k_ass.py`](subtitles/convert_srt_to_4k_ass.py)
 
-#### 1. Processamento e Estilização de Legendas (`subtitles/`)
+Converte `.srt` em `.ass` (*Advanced SubStation Alpha*) com estilo de alto contraste para vídeos 4K (3840x2160), exibições em telões, igrejas e eventos.
 
-##### 📄 [`convert_srt_to_4k_ass.py`](file:///Users/mateusarce/projetos/scripts/subtitles/convert_srt_to_4k_ass.py)
-* **Objetivo de Negócio**: 
-  Legendas no formato padrão `.srt` não possuem informações de estilo visual, resultando em textos pequenos, fontes genéricas e legibilidade prejudicada quando exibidas em telas grandes ou vídeos de alta resolução (4K). 
-  
-  Este script tem a finalidade de converter arquivos `.srt` em `.ass` (*Advanced SubStation Alpha*) com configurações visuais de alto contraste e legibilidade, projetadas especificamente para transmissões, exibições em igrejas/eventos e vídeos em resolução Ultra HD (3840x2160).
+```bash
+python3 subtitles/convert_srt_to_4k_ass.py legenda.srt                 # gera legenda.ass
+python3 subtitles/convert_srt_to_4k_ass.py legenda.srt saida.ass --force
+```
 
-* **Regras de Negócio & Transformações**:
-  - **Calibração de Resolução 4K**: Configura a área de exibição nativa para 3840x2160 (`PlayResX: 3840`, `PlayResY: 2160`).
-  - **Tipografia e Contraste**: Aplica fonte `Arial Black` em tamanho 280 com cor amarela de destaque, contorno escuro espesso (12px) e sombra (6px) para garantir leitura clara sobre qualquer fundo de imagem.
-  - **Posicionamento Seguro**: Define margens inferiores de 180px para evitar cortes por barras de reprodução ou sobreposição com elementos de interface.
-  - **Conversão de Timecodes**: Converte a precisão de tempo do padrão SRT (milissegundos separados por vírgula) para o padrão ASS (centésimos de segundo).
+- **Resolução**: `PlayResX: 3840`, `PlayResY: 2160`.
+- **Tipografia**: `Arial Black` tamanho 280, amarelo, contorno 12px e sombra 6px. No Linux a fonte normalmente não vem instalada e o player usa uma substituta.
+- **Margem inferior**: 180px.
+- **Timecodes**: converte milissegundos do SRT (`,` ou `.`, com ou sem espaços em `-->`) para centésimos do ASS.
+- **Texto**: `<i>`, `<b>` e `<u>` viram tags ASS; outras tags HTML são removidas; `{` e `}` são escapadas.
+- **Segurança**: não sobrescreve a saída sem `--force`; em caso de SRT inválido, termina com erro e não grava arquivo parcial.
 
----
+### 2. Google Drive — [`google_drive/organize_drive_ebooks.py`](google_drive/organize_drive_ebooks.py)
 
-#### 2. Gestão do Google Drive (`google_drive/`)
+Script de **uso único** que reorganizou um acervo específico de ebooks: os IDs de arquivos e pastas estão fixos no código, então ele não funciona em outro Drive sem edição.
 
-##### 📄 [`organize_drive_ebooks.py`](file:///Users/mateusarce/projetos/scripts/google_drive/organize_drive_ebooks.py)
-* **Objetivo de Negócio**: 
-  Após migrações ou downloads em lote, documentos e livros técnicos acumulam-se desordenados na nuvem. A busca manual por referências de estudo torna-se lenta e ineficiente.
-  
-  Este script automatiza a catalogação e organização do acervo digital no Google Drive, alocando cada livro técnico em sua respectiva trilha de conhecimento, além de higienizar o drive descartando arquivos duplicados e pastas esvaziadas.
+> ⚠️ Executa imediatamente ao rodar, sem modo de simulação: move arquivos, envia uma duplicata conhecida e pastas para a lixeira (pastas enviadas para a lixeira levam o conteúdo junto). Revise os IDs antes de executar.
 
-* **Regras de Negócio & Categorização**:
-  - **Classificação por Trilha Temática**:
-    - **Algoritmos e Estruturas de Dados**: Livros e materiais de teoria de algoritmos, grafos, resolução de problemas e compiladores.
-    - **Machine Learning e Matemática**: Obras sobre aprendizado de máquina, probabilidade, teoria da computação e Spark.
-    - **Banco de Dados**: Referências de bancos relacionais, otimização de consultas SQL, NoSQL (Redis) e grafos (Neo4j).
-    - **Outros / Geral**: Manuais de engenharia, livros institucionais/legais e materiais complementares.
-  - **Movimentação Segura**: Altera a hierarquia de pastas diretamente na API do Google Drive (`addParents`/`removeParents`) sem necessidade de download/upload dos arquivos.
-  - **Higienização de Duplicatas e Diretórios**: Identifica arquivos repetidos e envia para a lixeira, removendo também diretórios residuais de migrações anteriores (ex: pastas vazias de backups antigos).
-
----
-
-### 🚀 Boas Práticas para Novos Scripts
-
-Ao adicionar novos scripts ao repositório:
-1. **Modularização por Domínio**: Crie uma pasta específica para o assunto ou contexto de negócio do script (ex: `finance/`, `media_processing/`, `backup/`).
-2. **Nomenclatura Semântica**: Nomeie os arquivos com verbos de ação e objetivos claros (ex: `generate_monthly_report.py`, `compress_video_files.py`).
-3. **Documentação**: Atualize este `README.md` destacando a necessidade que o script resolve e suas regras de funcionamento.
-
----
----
-
-<a name="english-en"></a>
-## 🇺🇸 English (EN)
-
-Centralized repository for Python utilities and automations focused on file organization, media processing, and everyday operational tasks.
-
-### 📁 Repository Structure
-
-```text
-scripts/
-├── google_drive/                 # Cloud storage asset management & organization
-│   └── organize_drive_ebooks.py  # Technical book categorization & directory cleanup
-│
-├── subtitles/                    # Video subtitle processing & styling
-│   └── convert_srt_to_4k_ass.py  # SRT to 4K-styled ASS subtitle converter
-│
-├── README.md                     # Bilingual documentation (PT-BR / EN)
-└── README.en.md                  # Dedicated English README
+```bash
+export GDRIVE_TOKEN='token_oauth_com_escopo_drive'   # token de acesso; expira em ~1h
+python3 google_drive/organize_drive_ebooks.py
 ```
 
 ---
 
-### 🎯 Modules & Business Objectives
+### 🧪 Testes
 
-#### 1. Video Subtitle Processing & Styling (`subtitles/`)
+```bash
+python3 -m unittest discover -s tests -v
+```
 
-##### 📄 [`convert_srt_to_4k_ass.py`](file:///Users/mateusarce/projetos/scripts/subtitles/convert_srt_to_4k_ass.py)
-* **Business Objective**: 
-  Standard `.srt` subtitles lack styling metadata, leading to small, generic text and poor readability when rendered on large displays or high-resolution (4K) videos.
-  
-  This script converts basic `.srt` files into `.ass` (*Advanced SubStation Alpha*) format with tailored high-contrast styling designed specifically for 4K Ultra HD (3840x2160) video presentations, church services/events, and broadcast screens.
+O CI executa os testes em Ubuntu e Windows (Python 3.10 e 3.13).
 
-* **Business Rules & Transformations**:
-  - **4K Canvas Resolution**: Sets native display dimensions to 3840x2160 (`PlayResX: 3840`, `PlayResY: 2160`).
-  - **High-Contrast Typography**: Applies `Arial Black` at font size 280 in high-visibility yellow, with a thick black outline (12px) and shadow (6px) to guarantee readability over any background footage.
-  - **Safe Margins**: Defines a 180px vertical bottom margin to prevent occlusion by media player controls or interface overlays.
-  - **Timecode Precision Conversion**: Translates SRT millisecond timecodes (comma format) to the ASS standard (centisecond format).
+### 🚀 Boas práticas para novos scripts
 
----
-
-#### 2. Google Drive Storage Management (`google_drive/`)
-
-##### 📄 [`organize_drive_ebooks.py`](file:///Users/mateusarce/projetos/scripts/google_drive/organize_drive_ebooks.py)
-* **Business Objective**: 
-  Following large migrations or bulk downloads, digital libraries often become cluttered across root and temporary folders. Searching manually for study references becomes slow and cumbersome.
-  
-  This script automates the classification and restructuring of digital technical books on Google Drive, routing each item to its dedicated domain track while trashing duplicate copies and empty leftover folders.
-
-* **Business Rules & Categorization**:
-  - **Subject Track Routing**:
-    - **Algorithms & Data Structures**: Books on algorithmic theory, graphs, problem-solving, and compilers.
-    - **Machine Learning & Mathematics**: Works on machine learning, probability theory, foundations of computing, and Apache Spark.
-    - **Databases**: Relational databases, SQL optimization, NoSQL (Redis), and graph databases (Neo4j).
-    - **General / Other**: Engineering handbooks, legal codes, and general reference documents.
-  - **Safe In-Place Relocation**: Modifies parent folder hierarchy directly via the Google Drive API (`addParents`/`removeParents`), eliminating the need to re-download or re-upload large files.
-  - **Duplicate & Directory Hygiene**: Locates duplicate file copies and moves them to trash, expurgating empty folders from legacy backup structures.
-
----
-
-### 🚀 Guidelines for Adding New Scripts
-
-When contributing new scripts to this repository:
-1. **Domain-Driven Modularization**: Group scripts into designated subfolders based on their business domain (e.g., `finance/`, `media_processing/`, `backup/`).
-2. **Semantic Naming**: Use descriptive action verbs for filenames (e.g., `generate_monthly_report.py`, `compress_video_files.py`).
-3. **Documentation**: Keep the `README.md` updated with business purpose, input/output requirements, and operational rules in both Portuguese and English.
+1. **Pasta por domínio** (ex.: `finance/`, `media_processing/`, `backup/`) e nomes com verbo de ação (ex.: `compress_video_files.py`).
+2. **Sem caminhos, IDs ou tokens fixos no código**: receba entradas por argumentos (`argparse`) e segredos por variável de ambiente.
+3. **Ações destrutivas** (apagar, mover, sobrescrever) exigem confirmação explícita, como `--force` ou `--apply`.
+4. **Documente** o uso aqui e em `README.en.md`, e adicione testes para a lógica que não depende de serviços externos.

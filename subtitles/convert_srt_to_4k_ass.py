@@ -7,30 +7,17 @@ Objetivo:
   e margens ajustadas para telas amplas e eventos/transmissões.
 
 Uso:
-  python3 subtitles/convert_srt_to_4k_ass.py [<caminho_entrada.srt> <caminho_saida.ass>]
+  python3 subtitles/convert_srt_to_4k_ass.py entrada.srt [saida.ass] [--force]
 """
 
+import argparse
+import re
 import sys
+from pathlib import Path
 
-
-def srt_time_to_ass(time_str):
-    time_str = time_str.replace(',', '.')
-    parts = time_str.split(':')
-    if len(parts) == 3:
-        h, m, s = parts
-        s, ms = s.split('.')
-        h = int(h)
-        return f"{h}:{m}:{s}.{ms[:2]}"
-    return time_str
-
-
-def convert_srt_to_ass(srt_file, ass_file):
-    with open(srt_file, 'r', encoding='utf-8') as f:
-        lines = f.readlines()
-
-    # Fontsize alterado para 280.
-    # Outline, Shadow e MarginV redimensionados proporcionalmente para 4K.
-    ass_content = """[Script Info]
+# Fontsize alterado para 280.
+# Outline, Shadow e MarginV redimensionados proporcionalmente para 4K.
+ASS_HEADER = """[Script Info]
 Title: Legenda Estilizada 4K Grande
 ScriptType: v4.00+
 Collisions: Normal
@@ -45,39 +32,89 @@ Style: Default,Arial Black,280,&H0000FFFF,&H000000FF,&H00000000,&H80000000,-1,0,
 Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
 """
 
-    with open(ass_file, 'w', encoding='utf-8') as f:
-        f.write(ass_content)
+ASS_LINE_BREAK = "\\N"
 
-        i = 0
-        while i < len(lines):
-            line = lines[i].strip()
-            if not line:
-                i += 1
-                continue
+_TIME = r"(\d{1,2}):(\d{2}):(\d{2})(?:[,.](\d{1,3}))?"
+TIMING_RE = re.compile(rf"^\s*{_TIME}\s*-->\s*{_TIME}")
+FORMAT_TAG_RE = re.compile(r"<(/?)([ibu])>", re.IGNORECASE)
+OTHER_TAG_RE = re.compile(r"</?[a-z][^>]*>", re.IGNORECASE)
 
-            if '-->' in line:
-                start_time, end_time = line.split(' --> ')
-                start_ass = srt_time_to_ass(start_time)
-                end_ass = srt_time_to_ass(end_time)
 
-                text = []
-                i += 1
-                while i < len(lines) and lines[i].strip():
-                    text.append(lines[i].strip())
-                    i += 1
+class SrtError(ValueError):
+    pass
 
-                text_ass = "\\N".join(text)
-                f.write(f"Dialogue: 0,{start_ass},{end_ass},Default,,0,0,0,,{text_ass}\n")
-            else:
-                i += 1
+
+def srt_time_to_ass(hours, minutes, seconds, millis):
+    """Converte partes de um timecode SRT para o formato ASS (centésimos)."""
+    centis = int((millis or "0").ljust(3, "0")) // 10
+    return f"{int(hours)}:{minutes}:{seconds}.{centis:02d}"
+
+
+def _format_tag(match):
+    closing, tag = match.groups()
+    return "{\\" + tag.lower() + ("0" if closing else "1") + "}"
+
+
+def srt_text_to_ass(text):
+    """Escapa chaves e converte <i>/<b>/<u> em tags ASS; remove outras tags HTML."""
+    text = text.replace("{", "\\{").replace("}", "\\}")
+    text = FORMAT_TAG_RE.sub(_format_tag, text)
+    return OTHER_TAG_RE.sub("", text)
+
+
+def srt_to_ass(srt_content):
+    """Converte o conteúdo de um SRT em conteúdo ASS completo."""
+    lines = srt_content.splitlines()
+    events = []
+    i = 0
+    while i < len(lines):
+        line = lines[i].strip()
+        if "-->" not in line:
+            i += 1
+            continue
+
+        match = TIMING_RE.match(line)
+        if not match:
+            raise SrtError(f"linha {i + 1}: timecode inválido: {line!r}")
+        start = srt_time_to_ass(*match.groups()[:4])
+        end = srt_time_to_ass(*match.groups()[4:])
+
+        text = []
+        i += 1
+        while i < len(lines) and lines[i].strip():
+            text.append(srt_text_to_ass(lines[i].strip()))
+            i += 1
+
+        events.append(f"Dialogue: 0,{start},{end},Default,,0,0,0,,{ASS_LINE_BREAK.join(text)}\n")
+
+    if not events:
+        raise SrtError("nenhuma legenda encontrada no arquivo")
+    return ASS_HEADER + "".join(events)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(description="Converte uma legenda SRT em ASS estilizado para 4K.")
+    parser.add_argument("input", type=Path, help="arquivo .srt de entrada")
+    parser.add_argument("output", type=Path, nargs="?", help="arquivo .ass de saída (padrão: mesmo nome com .ass)")
+    parser.add_argument("--force", action="store_true", help="sobrescreve a saída se ela já existir")
+    args = parser.parse_args(argv)
+
+    output = args.output or args.input.with_suffix(".ass")
+    if not args.input.is_file():
+        parser.error(f"arquivo de entrada não encontrado: {args.input}")
+    if output.exists() and not args.force:
+        parser.error(f"saída já existe: {output} (use --force para sobrescrever)")
+
+    try:
+        content = srt_to_ass(args.input.read_text(encoding="utf-8-sig"))
+    except (SrtError, UnicodeDecodeError) as e:
+        print(f"erro: {args.input}: {e}", file=sys.stderr)
+        return 1
+
+    output.write_text(content, encoding="utf-8")
+    print(f"gerado: {output}")
+    return 0
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 3:
-        input_file = sys.argv[1]
-        output_file = sys.argv[2]
-    else:
-        input_file = "/Users/mateusarce/Downloads/Igreja/Luzeirinhos_de_Tefe_Corrigido.srt"
-        output_file = "/Users/mateusarce/Downloads/Igreja/Luzeirinhos_de_Tefe_Estilizado.ass"
-
-    convert_srt_to_ass(input_file, output_file)
+    sys.exit(main())
